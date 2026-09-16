@@ -25,7 +25,7 @@
       "location" : "https://github.com/chocoford/ChocofordKit.git",
       "state" : {
         "branch" : "main",
-        "revision" : "239706fbf2b6407ad9d3e755edd9185bcff368e9"
+        "revision" : "ac929204f6a929792b99906a33aa8e165c920c65"
       }
     },
     {
@@ -204,8 +204,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/siteline/swiftui-introspect",
       "state" : {
-        "revision" : "9bedf1e79c7b7c34b35b74bef126f56d2400ef7f",
-        "version" : "1.4.0-beta.4"
+        "revision" : "821a3d468fcf603cc4aa66ddb8542e91bd80b6c2",
+        "version" : "26.1.0"
       }
     },
     {
