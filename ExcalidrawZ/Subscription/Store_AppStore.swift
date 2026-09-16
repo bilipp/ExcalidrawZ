@@ -141,15 +141,6 @@ class Store: ObservableObject {
         }
     }
     
-    // Features Availability
-    var collaborationRoomLimits: Int? {
-        if !purchasedPlans.isEmpty || !purchasedMemberships.isEmpty {
-            return nil
-        }
-        return 1
-    }
-
-    
     // MARK: - Store info
     func listenForTransactions() -> Task<Void, Error> {
         let storeLogger = logger

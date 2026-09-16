@@ -12,7 +12,6 @@ import CoreData
 struct CompactCollaborationHomeView: View {
     @Environment(\.alertToast) var alertToast
 
-    @EnvironmentObject private var store: Store
     @EnvironmentObject private var fileState: FileState
     @EnvironmentObject private var collaborationState: CollaborationState
 
@@ -99,11 +98,7 @@ struct CompactCollaborationHomeView: View {
     private func actionButtons() -> some View {
         VStack(spacing: 12) {
             Button {
-                if let limit = store.collaborationRoomLimits, collaborationFiles.count >= limit {
-                    store.togglePaywall(reason: .roomLimit)
-                } else {
-                    collaborationState.isCreateRoomConfirmationDialogPresented.toggle()
-                }
+                collaborationState.isCreateRoomConfirmationDialogPresented.toggle()
             } label: {
                 Label(.localizable(.collaborationButtonCreateNewRoom), systemSymbol: .plusCircleFill)
                     .frame(maxWidth: .infinity)
@@ -112,11 +107,7 @@ struct CompactCollaborationHomeView: View {
             .modernButtonStyle(style: .glassProminent, size: .large, shape: .modern)
 
             Button {
-                if let limit = store.collaborationRoomLimits, collaborationFiles.count >= limit {
-                    store.togglePaywall(reason: .roomLimit)
-                } else {
-                    collaborationState.isJoinRoomSheetPresented.toggle()
-                }
+                collaborationState.isJoinRoomSheetPresented.toggle()
             } label: {
                 Label(.localizable(.collaborationButtonJoinRoom), systemSymbol: .arrowRightCircleFill)
                     .frame(maxWidth: .infinity)

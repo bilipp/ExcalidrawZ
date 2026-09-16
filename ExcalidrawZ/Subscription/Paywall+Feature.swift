@@ -63,13 +63,6 @@ extension Paywall {
             subtitle: String(localizable: .paywallFeatureOptimizedMCPMessage)
         )
 
-        static let unlimitedCollaborationTools = Feature(
-            id: "unlimited-collaboration-tools",
-            symbol: .person2Wave2,
-            title: String(localizable: .paywallFeatureStarterCollaborationTitle),
-            subtitle: String(localizable: .paywallFeatureStarterCollaborationMessage)
-        )
-
         static let presentation = Feature(
             id: "presentation",
             symbol: .rectangleStack,

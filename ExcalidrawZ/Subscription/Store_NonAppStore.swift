@@ -29,6 +29,4 @@ class Store: ObservableObject {
         nil
 #endif
     }
-    
-    var collaborationRoomLimits: Int? { 1 }
 }

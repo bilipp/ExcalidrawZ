@@ -20,7 +20,6 @@ struct NewFileButton: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.alertToast) private var alertToast
     @Environment(\.alert) private var alert
-    @EnvironmentObject private var store: Store
     @EnvironmentObject private var fileState: FileState
     @EnvironmentObject private var collaborationState: CollaborationState
     @EnvironmentObject private var localFolderState: LocalFolderState
@@ -41,9 +40,6 @@ struct NewFileButton: View {
 #elseif canImport(UIKit)
     @State private var window: UIWindow?
 #endif
-    
-    @FetchRequest(sortDescriptors: [])
-    private var collaborationFiles: FetchedResults<CollaborationFile>
     
     var body: some View {
         if fileState.isInCollaborationSpace {
@@ -111,20 +107,12 @@ struct NewFileButton: View {
     private func collaborationNewButton() -> some View {
         Menu {
             Button {
-                if let limit = store.collaborationRoomLimits, collaborationFiles.count >= limit {
-                    store.togglePaywall(reason: .roomLimit)
-                } else {
-                    collaborationState.isCreateRoomConfirmationDialogPresented.toggle()
-                }
+                collaborationState.isCreateRoomConfirmationDialogPresented.toggle()
             } label: {
                 Label(.localizable(.collaborationButtonCreateNewRoom), systemSymbol: .plus)
             }
             Button {
-                if let limit = store.collaborationRoomLimits, collaborationFiles.count >= limit {
-                    store.togglePaywall(reason: .roomLimit)
-                } else {
-                    collaborationState.isJoinRoomSheetPresented.toggle()
-                }
+                collaborationState.isJoinRoomSheetPresented.toggle()
             } label: {
                 Label(.localizable(.collaborationButtonJoinRoom), systemSymbol: .ipadAndArrowForward)
             }

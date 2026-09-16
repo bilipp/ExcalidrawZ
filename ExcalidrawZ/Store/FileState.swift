@@ -851,19 +851,12 @@ final class FileState: ObservableObject {
                     setActiveGroupIfNeeded(.temporary)
                 }
             case .collaborationFile(let room):
-                let store = Store.shared
-                if let limit = store.collaborationRoomLimits,
-                   collaboratingFiles.count >= limit,
-                   !collaboratingFiles.contains(room) {
-                    store.togglePaywall(reason: .roomLimit)
-                } else {
-                    setActiveGroupIfNeeded(.collaboration)
-                    if !collaboratingFiles.contains(room) {
-                        collaboratingFiles.append(room)
-                    }
-                    if collaboratingFilesState[room] == nil {
-                        collaboratingFilesState[room] = .loading
-                    }
+                setActiveGroupIfNeeded(.collaboration)
+                if !collaboratingFiles.contains(room) {
+                    collaboratingFiles.append(room)
+                }
+                if collaboratingFilesState[room] == nil {
+                    collaboratingFilesState[room] = .loading
                 }
             case .cloudStorageFile(let reference):
                 if let folder = CloudStorageDocumentStore.shared.bestKnownParentFolder(for: reference) {

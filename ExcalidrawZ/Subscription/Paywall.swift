@@ -593,7 +593,6 @@ struct Paywall: View {
     
     var starterFeatureLines: [Feature] {
         [
-            .unlimitedCollaborationTools,
             .presentation
         ]
     }

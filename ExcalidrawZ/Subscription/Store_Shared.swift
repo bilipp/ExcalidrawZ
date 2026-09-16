@@ -77,7 +77,7 @@ struct SubscriptionItem: Hashable, Identifiable, Comparable {
         description: String(localizable: .paywallPlanFreeDescription),
         features: Self.planFeatures(
             mcpFeature: String(localizable: .paywallPlanGeneralFeaturesBasicMCPServices),
-            collaborationRoomsCount: "1"
+            collaborationRoomsCount: String(localizable: .paywallPlanGeneralFeaturesUnlimitedValue)
         ),
         fallbackDisplayPrice: "Free",
         fallbackDisplayPeriod: "Forever",
@@ -199,8 +199,7 @@ extension Store {
 
     enum ReachPaywallReason {
         case manaully
-        
-        case roomLimit
+
         /// AI chat hit `LLMError.insufficientCredits`. Drives the paywall
         /// open from the chat error funnel so the user can top up without
         /// leaving the canvas.
@@ -212,8 +211,6 @@ extension Store {
             switch self {
                 case .manaully:
                     nil
-                case .roomLimit:
-                    String(localizable: .paywallReachReasonRoomLimit)
                 case .aiInsufficientCredits:
                     // TODO: add a localized key for this reason.
                     "Your AI credits have run out. Upgrade to keep chatting."
