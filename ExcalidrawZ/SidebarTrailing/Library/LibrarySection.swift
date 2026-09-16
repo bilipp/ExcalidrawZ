@@ -33,13 +33,13 @@ struct LibrarySectionContent: View {
         self.allLibraries = allLibraries
         self.library = library
         self.selections = selections
-        self.isExpanded = isExpanded
-        self.searchQuery = searchQuery
         self._items = FetchRequest(
             sortDescriptors: [SortDescriptor(\.createdAt, order: .forward)],
             predicate: NSPredicate(format: "library = %@", library),
             animation: .default
         )
+        self.isExpanded = isExpanded
+        self.searchQuery = searchQuery
     }
 
     private let columnCount = 3
