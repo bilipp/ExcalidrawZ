@@ -184,6 +184,11 @@ struct TemporaryFileMenuItems: View {
             )
         }
         
+        // Create a collaboration room from this file - only for single file
+        if let firstFile, isSingleFile {
+            CreateRoomFromFileButton(temporaryFile: firstFile)
+        }
+
         Divider()
         
         Button {

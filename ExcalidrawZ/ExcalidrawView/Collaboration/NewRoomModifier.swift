@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 class CollaborationState: ObservableObject {
     @Published var isCreateRoomConfirmationDialogPresented = false
@@ -14,6 +15,12 @@ class CollaborationState: ObservableObject {
     
     @Published var isCreateRoomSheetPresented = false
     
+    /// Requests to seed a new room from an existing file, sent by the file
+    /// context menus and by the create-room file browser. `NewRoomModifier`
+    /// is the only subscriber, which keeps loading and error reporting in one
+    /// place no matter where the request came from.
+    let createRoomFromFilePublisher = PassthroughSubject<CollaborationRoomSource, Never>()
+
     @AppStorage("userCollaborationName") private var userCollaborationName = ""
     var userCollaborationInfo: CollaborationInfo {
         get {
@@ -22,6 +29,10 @@ class CollaborationState: ObservableObject {
         set {
             userCollaborationName = newValue.username
         }
+    }
+    
+    func requestCreateRoom(from source: CollaborationRoomSource) {
+        createRoomFromFilePublisher.send(source)
     }
 }
 
@@ -119,26 +130,11 @@ struct NewRoomModifier: ViewModifier {
             }
             .sheet(isPresented: $state.isCreateRoomFromFileSheetPresented) {
                 ExcalidrawFileBrowser { selection in
-                    Task {
-                        do {
-                            switch selection {
-                                case .file(let file):
-                                    let content = try await file.loadContent()
-                                    var excalidrawFile = try ExcalidrawFile(data: content, id: file.id?.uuidString)
-                                    try await excalidrawFile.syncFiles(context: viewContext)
-                                    createRoom(
-                                        name: file.name ?? String(localizable: .generalUntitled),
-                                        file: excalidrawFile
-                                    )
-                                case .localFile(let url):
-                                    createRoom(
-                                        name: url.deletingPathExtension().lastPathComponent,
-                                        file: try ExcalidrawFile(contentsOf: url)
-                                    )
-                            }
-                        } catch {
-                            alertToast(error)
-                        }
+                    switch selection {
+                        case .file(let file):
+                            state.requestCreateRoom(from: .file(file))
+                        case .localFile(let url):
+                            state.requestCreateRoom(from: .localFile(url))
                     }
                 }
             }
@@ -148,9 +144,50 @@ struct NewRoomModifier: ViewModifier {
                     .presentationDetents([.height(240)])
 #endif
             }
+            .onReceive(state.createRoomFromFilePublisher) { source in
+                Task { await createRoom(from: source) }
+            }
             .environmentObject(state)
     }
     
+    /// Loads the source file's current contents and opens a room seeded with
+    /// them. Each storage kind needs its own read path — a linked folder file
+    /// needs its security scope, a cloud file may still have to be fetched.
+    @MainActor
+    private func createRoom(from source: CollaborationRoomSource) async {
+        do {
+            let name = source.roomName
+            switch source {
+                case .file(let file):
+                    let content = try await file.loadContent()
+                    var excalidrawFile = try ExcalidrawFile(data: content, id: file.id?.uuidString)
+                    try await excalidrawFile.syncFiles(context: viewContext)
+                    createRoom(name: name, file: excalidrawFile)
+
+                case .localFile(let url):
+                    let excalidrawFile = try await LocalFolder.withSecurityScopedAccessToContainingFolder(
+                        for: url
+                    ) {
+                        try ExcalidrawFile(contentsOf: url)
+                    }
+                    createRoom(name: name, file: excalidrawFile)
+
+                case .temporaryFile(let url):
+                    let content = try await fileState.readTemporaryFileContent(at: url)
+                    createRoom(name: name, file: try ExcalidrawFile(data: content))
+
+                case .cloudStorageFile(let reference):
+                    let content = try await CloudStorageDocumentStore.shared.content(
+                        for: reference,
+                        checkingRemoteRevision: true
+                    )
+                    createRoom(name: name, file: try ExcalidrawFile(data: content))
+            }
+        } catch {
+            alertToast(error)
+        }
+    }
+
     private func createRoom(name: String, file: ExcalidrawFile = ExcalidrawFile()) {
         Task.detached {
             do {

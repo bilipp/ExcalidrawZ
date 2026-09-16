@@ -293,6 +293,11 @@ struct FileMenuItems: View {
             // Move - works for single and multiple files
             moveFileMenu()
 
+            // Create a collaboration room from this file - only for single file
+            if let firstFile, isSingleFile {
+                CreateRoomFromFileButton(file: firstFile)
+            }
+
             // Copy file link - only for single file
             SensoryFeedbackButton {
                 if let firstFile {

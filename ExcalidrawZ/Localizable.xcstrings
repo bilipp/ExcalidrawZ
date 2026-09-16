@@ -29385,6 +29385,119 @@
         }
       }
     },
+    "collaborationButtonCreateRoomFromFile": {
+        "extractionState": "manual",
+        "localizations": {
+            "ar": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "إنشاء غرفة من هذا الملف"
+                }
+            },
+            "de": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "Raum aus dieser Datei erstellen"
+                }
+            },
+            "en": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "Create a room from this file"
+                }
+            },
+            "es": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "Crear una sala desde este archivo"
+                }
+            },
+            "fr": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "Créer une salle à partir de ce fichier"
+                }
+            },
+            "hi": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "इस फ़ाइल से एक कमरा बनाएँ"
+                }
+            },
+            "it": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "Crea una stanza da questo file"
+                }
+            },
+            "ja": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "このファイルから部屋を作成"
+                }
+            },
+            "ko": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "이 파일에서 방 만들기"
+                }
+            },
+            "nl": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "Maak een kamer van dit bestand"
+                }
+            },
+            "pl": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "Utwórz pokój z tego pliku"
+                }
+            },
+            "pt": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "Criar uma sala a partir deste arquivo"
+                }
+            },
+            "ru": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "Создать комнату из этого файла"
+                }
+            },
+            "th": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "สร้างห้องจากไฟล์นี้"
+                }
+            },
+            "tr": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "Bu dosyadan bir oda oluştur"
+                }
+            },
+            "vi": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "Tạo một phòng từ tệp này"
+                }
+            },
+            "zh-Hans": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "从此文件创建房间"
+                }
+            },
+            "zh-Hant": {
+                "stringUnit": {
+                    "state": "translated",
+                    "value": "從此檔案建立房間"
+                }
+            }
+        }
+    },
     "collaborationButtonJoinRoom": {
       "extractionState": "manual",
       "localizations": {

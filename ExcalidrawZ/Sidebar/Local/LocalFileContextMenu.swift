@@ -321,6 +321,11 @@ struct LocalFileRowMenuItems: View {
 
         moveLocalFileMenu()
         
+        // Create a collaboration room from this file - only for single file
+        if let firstFile, isSingleFile {
+            CreateRoomFromFileButton(localFile: firstFile)
+        }
+
 #if os(macOS)
         Button {
 #if canImport(AppKit)

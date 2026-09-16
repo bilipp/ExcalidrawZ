@@ -247,6 +247,11 @@ struct CloudStorageFileActionsModifier: ViewModifier {
             }
         }
 
+        if selectedReferences.count == 1,
+           selectedReferencesAllow(.download) {
+            CreateRoomFromFileButton(cloudStorageFile: reference)
+        }
+
         Divider()
 
         Button {
