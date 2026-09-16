@@ -130,9 +130,17 @@ Welcome to my [Discord server](https://discord.gg/aCv6w4HxDg) to share suggestio
 ## Development Guide
 
 - The Excalidraw core used by ExcalidrawZ is also open-source. You can find it [here](https://github.com/chocoford/excalidraw/tree/ExcalidrawZ-core).
-- Before you start coding, add your own `Overrides.xcconfig` in `ExcalidrawZ/Config` and populate it with:
+- Before you start coding, add your own `Overrides.xcconfig` in `Config` and populate it with:
 
 ```xcconfig
-DEVELOPMENT_TEAM = <YOUR_DEVELOPMENT_TEAM_FOR_DEBUG>;
-ICLOUD_CONTAINER = <YOUR_ICLOUD_CONTAINER_IDENTIFIER_FOR_DEBUG>;
+DEVELOPMENT_TEAM = <YOUR_DEVELOPMENT_TEAM>
+BUNDLE_ID_PREFIX = <YOUR_REVERSE_DOMAIN_PREFIX>
+APP_BUNDLE_NAME = <YOUR_APP_BUNDLE_NAME>
+ICLOUD_CONTAINER = <YOUR_ICLOUD_CONTAINER_IDENTIFIER>
 ```
+
+`Config/Project.xcconfig` holds the upstream defaults and includes `Overrides.xcconfig`
+last, so anything you set there wins. The app bundle identifier is assembled as
+`$(BUNDLE_ID_PREFIX).$(APP_BUNDLE_NAME)`, and `ICLOUD_CONTAINER` feeds both
+`ExcalidrawZ.entitlements` and the container the app opens at runtime, so register
+that container for your team in the Apple Developer portal before building.

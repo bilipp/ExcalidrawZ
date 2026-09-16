@@ -1,2 +1,9 @@
+// Upstream defaults. Do not put personal signing values here — add them to
+// Overrides.xcconfig instead (gitignored), which is included last and wins.
+
+DEVELOPMENT_TEAM = 3XKM749Y3L
+BUNDLE_ID_PREFIX = com.chocoford
+APP_BUNDLE_NAME = excalidraw
+ICLOUD_CONTAINER = iCloud.com.chocoford.excalidraw
 
 #include? "Overrides.xcconfig"

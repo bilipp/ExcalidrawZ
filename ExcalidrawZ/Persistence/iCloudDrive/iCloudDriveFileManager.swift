@@ -99,7 +99,7 @@ actor iCloudDriveFileManager {
     private var iCloudContainerURL: URL? {
         // ~/Library/Mobile Documents/iCloud~com~chocoford~excalidraw/
         if let iCloudContainerURL = FileManager.default
-            .url(forUbiquityContainerIdentifier: "iCloud.com.chocoford.excalidraw") {
+            .url(forUbiquityContainerIdentifier: ICloudContainer.identifier) {
             var url = iCloudContainerURL
                 .appendingPathComponent("Data", conformingTo: .directory)
 
@@ -303,7 +303,7 @@ actor iCloudDriveFileManager {
     func checkICloudAvailability() -> ICloudAvailabilityStatus {
         // Check if container URL is available
         guard let containerURL = FileManager.default
-            .url(forUbiquityContainerIdentifier: "iCloud.com.chocoford.excalidraw") else {
+            .url(forUbiquityContainerIdentifier: ICloudContainer.identifier) else {
             return .unavailable
         }
 

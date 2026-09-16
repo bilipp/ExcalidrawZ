@@ -75,7 +75,7 @@ class PersistenceController {
         // Only configure CloudKit options when CloudKit is enabled
         if cloudKitEnabled {
             cloudStoreDescription.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(
-                containerIdentifier: "iCloud.com.chocoford.excalidraw"
+                containerIdentifier: ICloudContainer.identifier
             )
         }
 
