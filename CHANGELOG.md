@@ -1,3 +1,35 @@
+## 2.5.0
+
+#### Features
+
+- Added a macOS Viewer window for presenting a clean, live canvas on a second display, with full-screen support and main-canvas controls for following, pointer and laser visibility, and pointer color. ([#189](https://github.com/chocoford/ExcalidrawZ/pull/189), [#193](https://github.com/chocoford/ExcalidrawZ/pull/193))
+- Added an option to export only selected elements as PNG or SVG on Mac, iPad, and iPhone.
+
+#### Optimizations
+
+- Refined the image export panel with clearer options, compact aligned controls, and glass styling on supported systems.
+
+#### Bug fixed
+
+- Fixed macOS Quick Look previews to prioritize canvas appearance, falling back to app and system appearance when set to Automatic. ([#185](https://github.com/chocoford/ExcalidrawZ/issues/185))
+
+## 2.4.5
+
+#### Optimizations
+
+- Cached drawing covers between app launches and reduced unnecessary file browser updates.
+- Improved scrolling in large file groups and the Sidebar on macOS.
+- Added dedicated Excalidraw document icons and made macOS Quick Look previews follow the app's appearance setting.
+- Refined Search layouts on iPhone and iPad, unified iPad inspector navigation, and improved spacing in the iPhone AI Chat input controls.
+- Dropbox connections are now available to all users.
+
+#### Bug fixed
+
+- Fixed macOS canvas sizing and drawing controls becoming unresponsive after resizing a window.
+- Improved canvas recovery after returning to the app or a web content process interruption.
+- Fixed SwiftUI update cycles when closing a drawing on macOS.
+- Preserved exported file names and improved compatibility with Obsidian and other Excalidraw apps.
+
 ## 2.4.4
 
 #### Bug fixed

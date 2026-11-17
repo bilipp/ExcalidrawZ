@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import CoreData
 import WebKit
 
 import ChocofordUI
@@ -25,7 +26,7 @@ struct ShareFileModifier: ViewModifier {
 #else
                 switch shareFileState.shareTarget {
                     case .image:
-                        ExportImageView(file: file)
+                        ExportImageView(file: file, context: shareFileState.imageExportContext)
                     case .file:
                         ExportFileView(file: file)
                     case .none:
@@ -39,10 +40,14 @@ struct ShareFileModifier: ViewModifier {
     private func content(_ file: ExcalidrawFile) -> some View {
         ZStack {
             if #available(macOS 13.0, iOS 16.0, *) {
-                ShareView(sharedFile: file, containerSizeClass: horizontalSizeClass)
+                ShareView(
+                    sharedFile: file,
+                    containerSizeClass: horizontalSizeClass,
+                    imageExportContext: shareFileState.imageExportContext
+                )
                     .swiftyAlert()
             } else {
-                ShareViewLagacy(sharedFile: file)
+                ShareViewLagacy(sharedFile: file, imageExportContext: shareFileState.imageExportContext)
                     .swiftyAlert()
             }
         }
@@ -65,10 +70,16 @@ struct ShareView: View {
     
     var sharedFile: ExcalidrawFile
     var containerSizeClass: UserInterfaceSizeClass?
+    var imageExportContext: ImageExportContext
     
-    init(sharedFile: ExcalidrawFile, containerSizeClass: UserInterfaceSizeClass?) {
+    init(
+        sharedFile: ExcalidrawFile,
+        containerSizeClass: UserInterfaceSizeClass?,
+        imageExportContext: ImageExportContext = .init()
+    ) {
         self.sharedFile = sharedFile
         self.containerSizeClass = containerSizeClass
+        self.imageExportContext = imageExportContext
     }
     
     enum Route: Hashable {
@@ -87,7 +98,7 @@ struct ShareView: View {
         var preferredSheetHeight: CGFloat {
             switch self {
                 case .exportImage:
-                    return 442
+                    return 530
                 case .exportFile:
                     return 250
                 case .archive:
@@ -166,7 +177,7 @@ struct ShareView: View {
                 ZStack {
                     switch route {
                         case .exportImage:
-                            ExportImageView(file: sharedFile)
+                            ExportImageView(file: sharedFile, context: imageExportContext)
                         case .exportFile:
                             ExportFileView(file: sharedFile)
 #if os(macOS)
@@ -314,6 +325,7 @@ struct ShareViewLagacy: View {
     @EnvironmentObject var exportState: ExportState
     
     var sharedFile: ExcalidrawFile
+    var imageExportContext = ImageExportContext()
     
     enum Route: Hashable {
         case exportImage
@@ -325,7 +337,7 @@ struct ShareViewLagacy: View {
     var body: some View {
         ZStack {
             if route.last == .exportImage {
-                ExportImageView(file: sharedFile) {
+                ExportImageView(file: sharedFile, context: imageExportContext) {
                     route.removeLast()
                 }
                 .transition(.opacity)

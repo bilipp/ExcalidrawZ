@@ -6,8 +6,15 @@
 //
 
 import SwiftUI
+import CoreData
+import SwiftyAlert
 
 import ChocofordUI
+
+struct ImageExportContext {
+    var selectedElementIDs: Set<String> = []
+    var coordinator: ExcalidrawCore? = nil
+}
 
 class ShareFileState: ObservableObject {
     enum ShareTarget {
@@ -18,10 +25,12 @@ class ShareFileState: ObservableObject {
         didSet {
             if currentSharedFile == nil {
                 shareTarget = nil
+                imageExportContext = .init()
             }
         }
     }
     @Published var shareTarget: ShareTarget?
+    var imageExportContext = ImageExportContext()
 }
 
 struct ShareToolbarButton: View {
@@ -136,56 +145,88 @@ struct ShareToolbarButton: View {
     @MainActor
     private func performShareFile() async {
         do {
-            await syncCurrentCanvasBeforeSharingIfNeeded()
-            switch fileState.currentActiveFile {
-                case .file(let file):
-                    let content = try await file.loadContent()
-                    let excalidrawFile = try ExcalidrawFile(
-                        data: content,
-                        id: file.id?.uuidString
-                    )
-                    self.shareFileState.currentSharedFile = excalidrawFile
-                case .localFile(let url):
-                    let excalidrawFile = try await LocalFolder.withSecurityScopedAccessToContainingFolder(
-                        for: url
-                    ) {
-                        try ExcalidrawFile(contentsOf: url)
+            guard let activeFile = fileState.currentActiveFile else { return }
+            let coordinator: ExcalidrawCore?
+            if case .collaborationFile = activeFile {
+                coordinator = fileState.excalidrawCollaborationWebCoordinator
+            } else {
+                coordinator = fileState.excalidrawWebCoordinator
+                if let coordinator {
+                    guard try await coordinator.documentSyncController.waitUntilFileIsLoaded(
+                        activeFile.id,
+                        timeout: 15
+                    ) else {
+                        throw ExcalidrawPreviewExportError.timedOut("Export document", 15)
                     }
-                    self.shareFileState.currentSharedFile = excalidrawFile
-                case .temporaryFile(let url):
-                    let content = try await fileState.readTemporaryFileContent(at: url)
-                    self.shareFileState.currentSharedFile = try ExcalidrawFile(
-                        data: content,
-                        id: fileState.currentActiveFile?.id
-                    )
-                    
-                case .collaborationFile(let collaborationFile):
-                    let content = try await collaborationFile.loadContent()
-                    self.shareFileState.currentSharedFile = try ExcalidrawFile(
-                        data: content,
-                        id: collaborationFile.id?.uuidString
-                    )
-                case .cloudStorageFile(let reference):
-                    let content = try await CloudStorageDocumentStore.shared.content(
-                        for: reference,
-                        checkingRemoteRevision: false
-                    )
-                    self.shareFileState.currentSharedFile = try ExcalidrawFile(
-                        data: content,
-                        id: reference.id
-                    )
-                default:
-                    break
+                }
             }
+            guard fileState.currentActiveFile?.id == activeFile.id else { return }
+            let selectedIDs = (try? await coordinator?.getSelectedElementIDs())
+                ?? coordinator?.selectedElementIDs ?? []
+            await coordinator?.documentSyncController
+                .flushPendingDirtySnapshot(reason: "shareToolbar")
+            guard fileState.currentActiveFile?.id == activeFile.id else { return }
+            var sharedFile: ExcalidrawFile?
+            if let coordinator {
+                // Stored library documents omit media. Export a live snapshot so recently
+                // edited elements and their image resources stay together.
+                let snapshot = try await coordinator.getCurrentFileSnapshot()
+                guard var document = try JSONSerialization.jsonObject(with: snapshot.documentData()) as? [String: Any] else {
+                    throw CocoaError(.coderReadCorrupt)
+                }
+                document["type"] = "excalidraw"
+                sharedFile = try ExcalidrawFile(
+                    data: JSONSerialization.data(withJSONObject: document),
+                    id: activeFile.id
+                )
+            } else {
+                switch activeFile {
+                    case .file(let file):
+                        let content = try await file.loadContent()
+                        sharedFile = try ExcalidrawFile(
+                            data: content,
+                            id: file.id?.uuidString
+                        )
+                    case .localFile(let url):
+                        sharedFile = try await LocalFolder.withSecurityScopedAccessToContainingFolder(
+                            for: url
+                        ) {
+                            try ExcalidrawFile(contentsOf: url)
+                        }
+                    case .temporaryFile(let url):
+                        let content = try await fileState.readTemporaryFileContent(at: url)
+                        sharedFile = try ExcalidrawFile(
+                            data: content,
+                            id: activeFile.id
+                        )
+                    case .collaborationFile(let collaborationFile):
+                        let content = try await collaborationFile.loadContent()
+                        sharedFile = try ExcalidrawFile(
+                            data: content,
+                            id: collaborationFile.id?.uuidString
+                        )
+                    case .cloudStorageFile(let reference):
+                        let content = try await CloudStorageDocumentStore.shared.content(
+                            for: reference,
+                            checkingRemoteRevision: false
+                        )
+                        sharedFile = try ExcalidrawFile(
+                            data: content,
+                            id: reference.id
+                        )
+                }
+            }
+            guard var sharedFile,
+                  fileState.currentActiveFile?.id == activeFile.id else { return }
+            sharedFile.name = activeFile.name
+            shareFileState.imageExportContext = ImageExportContext(
+                selectedElementIDs: Set(selectedIDs),
+                coordinator: coordinator
+            )
+            self.shareFileState.currentSharedFile = sharedFile
         } catch {
             alertToast(error)
         }
-    }
-
-    @MainActor
-    private func syncCurrentCanvasBeforeSharingIfNeeded() async {
-        await fileState.excalidrawWebCoordinator?.documentSyncController
-            .flushPendingDirtySnapshot(reason: "shareToolbar")
     }
 
 #if os(macOS)

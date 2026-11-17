@@ -14,9 +14,33 @@ import SwiftyAlert
 struct QuickLookView: View {
     @Environment(\.alertToast) var alertToast
 
+    @AppStorage(
+        SharedAppAppearanceStore.appearanceKey,
+        store: SharedAppAppearanceStore.defaults
+    ) private var appearanceRawValue = SharedAppAppearance.auto.rawValue
+
+    @AppStorage(
+        SharedAppAppearanceStore.canvasAppearanceKey,
+        store: SharedAppAppearanceStore.defaults
+    ) private var canvasAppearanceRawValue = SharedAppAppearance.auto.rawValue
+
     @ObservedObject var state: PreviewState
     var file: ExcalidrawFile? { state.file }
     var error: Error? { state.error }
+
+    private var preferredColorScheme: ColorScheme? {
+        switch SharedAppAppearance.resolve(
+            canvas: SharedAppAppearance(rawValue: canvasAppearanceRawValue) ?? .auto,
+            app: SharedAppAppearance(rawValue: appearanceRawValue) ?? .auto
+        ) {
+            case .light:
+                return .light
+            case .dark:
+                return .dark
+            case .auto:
+                return nil
+        }
+    }
     
     var body: some View {
         ZStack {
@@ -31,5 +55,6 @@ struct QuickLookView: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 6))
+        .preferredColorScheme(preferredColorScheme)
     }
 }

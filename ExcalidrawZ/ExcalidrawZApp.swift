@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import CoreData
 import Logging
 #if os(macOS)
 import KeyboardShortcuts
@@ -74,6 +75,9 @@ struct ExcalidrawZApp: App {
         
 #if os(macOS) && !APP_STORE
     private let updaterController: SPUStandardUpdaterController
+#endif
+#if os(macOS)
+    @Environment(\.openWindow) private var openWindow
 #endif
     init() {
         // Configure logging level
@@ -262,6 +266,7 @@ struct ExcalidrawZApp: App {
                 .environmentObject(store)
                 .environmentObject(aiChatState)
                 .environmentObject(lockedContentState)
+                .environment(\.filePreviewLockStateStore, lockedContentState)
                 .llmProvider(state: llmState, client: .shared)
                 .lockedContentAutoRelock(lockedContentState: lockedContentState)
                 .onAppear {
@@ -370,8 +375,16 @@ struct ExcalidrawZApp: App {
                     Text(.localizable(.menubarToggleShare))
                 }
                 .keyboardShortcut("S", modifiers: [.command, .shift])
+
+                Button {
+                    ViewerMirrorController.shared.prepareForOpeningViewer()
+                    openWindow(id: ViewerMirrorController.windowID)
+                } label: {
+                    Text(.localizable(.menubarOpenViewerWindow))
+                }
+                .keyboardShortcut("V", modifiers: [.command, .shift])
             }
-            
+
             CommandGroup(after: .help) {
                 Button {
                     NotificationCenter.default.post(name: .toggleWhatsNewSheet, object: nil)
@@ -394,6 +407,14 @@ struct ExcalidrawZApp: App {
 #if os(macOS)
         // documentGroup()
 
+        // Read-only mirror of the editor canvas for a second display.
+        Window(Text(.localizable(.viewerWindowTitle)), id: ViewerMirrorController.windowID) {
+            ViewerWindowView()
+                .preferredColorScheme(appPrefernece.appearance.colorScheme)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 960, height: 600)
+
         Settings {
             SettingsView()
                 .swiftyAlert(logs: true)
@@ -403,6 +424,7 @@ struct ExcalidrawZApp: App {
                 .environmentObject(appPrefernece)
                 .environmentObject(store)
                 .environmentObject(lockedContentState)
+                .environment(\.filePreviewLockStateStore, lockedContentState)
                 .llmProvider(state: llmState, client: .shared)
 #if !APP_STORE
                 .environmentObject(updateChecker)

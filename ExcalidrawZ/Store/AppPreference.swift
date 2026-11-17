@@ -97,8 +97,39 @@ final class AppPreference: ObservableObject {
             }
         }
     }
-    @AppStorage("appearance") var appearance: Appearance = .auto
-    @AppStorage("excalidrawAppearance") var excalidrawAppearance: Appearance = .auto
+    @AppStorage("appearance") private var storedAppearance: Appearance = .auto
+    @AppStorage("excalidrawAppearance") private var storedExcalidrawAppearance: Appearance = .auto
+
+    var appearance: Appearance {
+        get { storedAppearance }
+        set {
+            guard storedAppearance != newValue else { return }
+            objectWillChange.send()
+            storedAppearance = newValue
+            synchronizeSharedAppearance()
+        }
+    }
+
+    var excalidrawAppearance: Appearance {
+        get { storedExcalidrawAppearance }
+        set {
+            guard storedExcalidrawAppearance != newValue else { return }
+            objectWillChange.send()
+            storedExcalidrawAppearance = newValue
+            synchronizeSharedAppearance()
+        }
+    }
+
+    init() {
+        synchronizeSharedAppearance()
+    }
+
+    private func synchronizeSharedAppearance() {
+        SharedAppAppearanceStore.save(
+            SharedAppAppearance(rawValue: storedAppearance.rawValue) ?? .auto,
+            canvasAppearance: SharedAppAppearance(rawValue: storedExcalidrawAppearance.rawValue) ?? .auto
+        )
+    }
     
     var appearanceBinding: Binding<ColorScheme?> {
         Binding {
