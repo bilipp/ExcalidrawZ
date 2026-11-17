@@ -139,6 +139,10 @@ struct ExcaliDashCredentialStore: Sendable {
 }
 
 actor ExcaliDashAuthenticator {
+    /// The provider and live collaboration share one instance, and thus one
+    /// signed-in client per account.
+    static let shared = ExcaliDashAuthenticator()
+
     private let credentialStore: ExcaliDashCredentialStore
     /// One client (and thus one cookie jar / CSRF token) per account, shared
     /// by every session the document store creates for it.
@@ -278,6 +282,13 @@ actor ExcaliDashAuthenticator {
             )
         }
         return ExcaliDashUser(id: "sso", email: nil, name: nil, username: nil, mustResetPassword: nil)
+    }
+
+    func liveContext(
+        for accountID: CloudStorageAccountID
+    ) throws -> (ExcaliDashCredential, ExcaliDashAPIClient) {
+        let credential = try credential(for: accountID)
+        return (credential, client(for: credential))
     }
 
     func signOut(accountID: CloudStorageAccountID) throws {

@@ -109,7 +109,7 @@ enum CloudStorageBootstrap {
     private static func registerExcaliDash() async {
         do {
             try await CloudStorageProviderRegistry.shared.register(
-                ExcaliDashCloudStorageProvider(authenticator: ExcaliDashAuthenticator())
+                ExcaliDashCloudStorageProvider(authenticator: .shared)
             )
             logger.info("Registered ExcaliDash cloud storage provider")
         } catch CloudStorageProviderRegistry.RegistryError.providerAlreadyRegistered(_) {

@@ -106,6 +106,18 @@ actor ExcaliDashAPIClient {
         _ = try await send("DELETE", path, operation: operation)
     }
 
+    /// Credential for the realtime socket: the API key, or the session's
+    /// current access token (read from the cookie jar after making sure the
+    /// session is fresh).
+    func realtimeToken() async -> String? {
+        if let apiKey { return apiKey }
+        guard login != nil else { return nil }
+        // Any authenticated request refreshes an expired access token.
+        _ = try? await send("GET", "auth/me", operation: .authorize)
+        let cookies = urlSession.configuration.httpCookieStorage?.cookies(for: endpoint.apiBaseURL) ?? []
+        return cookies.first(where: { $0.name == "excalidash-access-token" })?.value
+    }
+
     /// Fetches binary content addressed by an absolute URL or by a server
     /// path such as `/api/files/<drawing>/<file>` stored in a scene.
     func fetchAsset(_ reference: String) async throws -> (Data, String?) {

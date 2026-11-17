@@ -157,6 +157,17 @@ struct ExcalidrawEditor: View {
         return reference.id
     }
 
+    /// Live collaboration runs while an ExcaliDash drawing is open, whatever
+    /// the scene phase: peers keep editing while this window is in the back.
+    private var activeExcaliDashLiveID: String {
+        guard case .cloudStorageFile(let reference) = activeFile,
+              reference.providerID == .excaliDash,
+              !isLoadingFile else {
+            return "inactive"
+        }
+        return reference.id
+    }
+
     private var activeCloudStorageConflictReference: CloudStorageDocumentReference? {
         guard case .cloudStorageFile(let reference) = activeFile,
               case .conflict = cloudStorageDocumentStore.syncState(for: reference) else {
@@ -432,6 +443,12 @@ struct ExcalidrawEditor: View {
             await CloudStorageSyncService.shared.monitorActiveDocument(reference) {
                 refreshActiveCloudStorageDocument()
             }
+        }
+        .task(id: activeExcaliDashLiveID) {
+            guard case .cloudStorageFile(let reference) = activeFile,
+                  reference.providerID == .excaliDash,
+                  let webView = fileState.excalidrawWebCoordinator?.webView else { return }
+            await ExcaliDashLiveRegistry.shared.run(reference: reference, webView: webView)
         }
         .onReceive(
             NotificationCenter.default.publisher(for: .activeCanvasFileDidRestore)
@@ -937,6 +954,9 @@ struct ExcalidrawEditor: View {
     @MainActor
     private func refreshActiveCloudStorageDocument() {
         guard case .cloudStorageFile(let reference) = activeFile,
+              // Live drawings receive peers' edits over the socket; a reload
+              // here would only reset undo history.
+              !ExcaliDashLiveRegistry.shared.isLive(reference),
               let activeFile,
               let baselineFile = cloudStorageRefreshBaselineFile,
               !isCloudStorageConflictBlockingEditor else { return }

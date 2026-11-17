@@ -246,16 +246,73 @@ actor ExcaliDashCloudStorageSession: CloudStorageSession {
         }
         switch condition {
             case .ifUnmodified(let revision):
-                if let version = Int(revision) { body["version"] = version }
+                if let version = Self.version(fromRevision: revision) { body["version"] = version }
             case .ifAbsent:
                 throw CloudStorageError.conflict
             case .unconditional:
                 break
         }
 
-        recentScenes.removeValue(forKey: drawingID)
-        let data = try await client.send("PUT", "drawings/\(drawingID)", json: body, operation: .updateFile)
-        return try storeSaveResponse(data, parent: drawingParents[drawingID])
+        // Like the ExcaliDash web editor, a save that loses to a concurrent
+        // one (another tab, a collaborator, a live peer) merges element by
+        // element against the latest copy and retries, instead of making the
+        // user resolve a whole-file conflict.
+        var adoptedRemoteChanges = false
+        var attempt = 0
+        while true {
+            recentScenes.removeValue(forKey: drawingID)
+            do {
+                let data = try await client.send("PUT", "drawings/\(drawingID)", json: body, operation: .updateFile)
+                let item = try storeSaveResponse(data, parent: drawingParents[drawingID])
+                return adoptedRemoteChanges ? Self.markingMerged(item) : item
+            } catch CloudStorageError.conflict where body["version"] != nil && attempt < 4 {
+                attempt += 1
+                try await Task.sleep(for: .milliseconds(100 * (1 << attempt) + Int.random(in: 0..<150)))
+                let latest = try await fetchScene(drawingID)
+                guard let object = try JSONSerialization.jsonObject(with: latest) as? [String: Any],
+                      let version = object["version"] as? Int else {
+                    throw CloudStorageError.conflict
+                }
+                let remoteFiles = object["files"] as? [String: Any] ?? [:]
+                serverFileIDs[drawingID] = Set(remoteFiles.keys)
+                let merged = ExcaliDashReconciler.reconcile(
+                    local: body["elements"] as? [Any] ?? [],
+                    remote: object["elements"] as? [Any] ?? []
+                )
+                adoptedRemoteChanges = adoptedRemoteChanges || merged.adoptedRemote
+                body["elements"] = merged.elements
+                body["version"] = version
+                let missingFiles = scene.files.filter { remoteFiles[$0.key] == nil }
+                if missingFiles.isEmpty {
+                    body.removeValue(forKey: "files")
+                } else {
+                    body["files"] = missingFiles
+                }
+            }
+        }
+    }
+
+    /// `merged:<version>` tells the document store the server now holds
+    /// more than this device uploaded, so its next freshness check (which
+    /// sees the plain version) downloads the merged drawing.
+    static func version(fromRevision revision: String) -> Int? {
+        Int(revision.hasPrefix("merged:") ? String(revision.dropFirst("merged:".count)) : revision)
+    }
+
+    private static func markingMerged(_ item: CloudStorageItem) -> CloudStorageItem {
+        CloudStorageItem(
+            id: item.id,
+            parentID: item.parentID,
+            name: item.name,
+            kind: item.kind,
+            contentType: item.contentType,
+            size: item.size,
+            createdAt: item.createdAt,
+            modifiedAt: item.modifiedAt,
+            remoteURL: item.remoteURL,
+            revision: item.revision.map { "merged:\($0)" },
+            capabilities: item.capabilities
+        )
     }
 
     // MARK: - Organization

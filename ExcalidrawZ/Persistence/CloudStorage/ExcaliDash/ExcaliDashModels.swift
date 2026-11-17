@@ -223,3 +223,51 @@ enum ExcaliDashScene {
         return result
     }
 }
+
+/// Excalidraw's element reconciliation, as the web editor and collab use it:
+/// per element id the higher `version` wins, ties go to the lower
+/// `versionNonce`, and deleted elements stay as tombstones so deletions merge
+/// too. Order follows the fractional `index` when every element has one.
+enum ExcaliDashReconciler {
+    static func reconcile(local: [Any], remote: [Any]) -> (elements: [Any], adoptedRemote: Bool) {
+        var order: [String] = []
+        var byID: [String: [String: Any]] = [:]
+        for case let element as [String: Any] in local {
+            guard let id = element["id"] as? String else { continue }
+            if byID[id] == nil { order.append(id) }
+            byID[id] = element
+        }
+        var adopted = false
+        for case let element as [String: Any] in remote {
+            guard let id = element["id"] as? String else { continue }
+            guard let current = byID[id] else {
+                order.append(id)
+                byID[id] = element
+                adopted = true
+                continue
+            }
+            if remoteWins(remote: element, local: current) {
+                byID[id] = element
+                adopted = true
+            }
+        }
+        var elements = order.compactMap { byID[$0] }
+        if elements.allSatisfy({ $0["index"] is String }) {
+            elements.sort { lhs, rhs in
+                let l = lhs["index"] as! String, r = rhs["index"] as! String
+                if l != r { return l < r }
+                return (lhs["id"] as? String ?? "") < (rhs["id"] as? String ?? "")
+            }
+        }
+        return (elements, adopted)
+    }
+
+    static func remoteWins(remote: [String: Any], local: [String: Any]) -> Bool {
+        let remoteVersion = remote["version"] as? Int ?? 0
+        let localVersion = local["version"] as? Int ?? 0
+        if remoteVersion != localVersion { return remoteVersion > localVersion }
+        let remoteNonce = remote["versionNonce"] as? Int ?? 0
+        let localNonce = local["versionNonce"] as? Int ?? 0
+        return remoteNonce < localNonce
+    }
+}
