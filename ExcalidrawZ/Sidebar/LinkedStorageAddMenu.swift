@@ -64,6 +64,7 @@ struct LinkedStorageAddMenu<AdditionalContent: View, Label: View>: View {
             switch route {
                 case .serverCredentials(let descriptor):
                     CloudStorageServerConnectionSheet(
+                        providerID: descriptor.id,
                         providerName: descriptor.displayName,
                         connectedAccounts: connections.accounts(for: descriptor.id),
                         onSelectAccount: { [connections, sheetRoute = $sheetRoute] account in
@@ -171,7 +172,7 @@ struct LinkedStorageAddMenu<AdditionalContent: View, Label: View>: View {
     private func menuBadge(
         for descriptor: CloudStorageProviderDescriptor
     ) -> Text? {
-        if descriptor.id == .webDAV {
+        if descriptor.id == .webDAV || descriptor.id == .excaliDash {
             return Text(String(
                 localized: "generalBadgeBeta",
                 defaultValue: "Beta"

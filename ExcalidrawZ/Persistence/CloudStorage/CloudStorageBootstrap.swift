@@ -15,6 +15,7 @@ enum CloudStorageBootstrap {
         await registerGoogleDrive()
         await registerDropbox()
         await registerWebDAV()
+        await registerExcaliDash()
     }
 
     @MainActor
@@ -101,6 +102,20 @@ enum CloudStorageBootstrap {
             return
         } catch {
             logger.error("Failed to register WebDAV cloud storage provider: \(error)")
+        }
+    }
+
+    @MainActor
+    private static func registerExcaliDash() async {
+        do {
+            try await CloudStorageProviderRegistry.shared.register(
+                ExcaliDashCloudStorageProvider(authenticator: ExcaliDashAuthenticator())
+            )
+            logger.info("Registered ExcaliDash cloud storage provider")
+        } catch CloudStorageProviderRegistry.RegistryError.providerAlreadyRegistered(_) {
+            return
+        } catch {
+            logger.error("Failed to register ExcaliDash cloud storage provider: \(error)")
         }
     }
 

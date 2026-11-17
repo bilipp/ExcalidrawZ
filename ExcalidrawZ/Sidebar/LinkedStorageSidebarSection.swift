@@ -93,6 +93,7 @@ struct LinkedStorageSidebarSection: View {
             switch route {
                 case .serverCredentials(let descriptor, let location):
                     CloudStorageServerConnectionSheet(
+                        providerID: descriptor.id,
                         providerName: descriptor.displayName,
                         connectedAccounts: []
                     ) { credentials in
@@ -254,7 +255,7 @@ struct LinkedStorageSidebarSection: View {
         )
         guard account.id == location.accountID else {
             throw CloudStorageError.invalidProviderResponse(
-                "These credentials belong to a different WebDAV account or server."
+                "These credentials belong to a different account or server."
             )
         }
         connections.clearAuthenticationRequirement(for: location)
@@ -277,6 +278,7 @@ struct LinkedStorageSidebarSection: View {
         .microsoftOneDrive,
         .dropbox,
         .webDAV,
+        .excaliDash,
     ]
 
 }

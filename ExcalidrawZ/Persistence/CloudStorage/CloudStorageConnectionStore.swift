@@ -318,7 +318,10 @@ final class CloudStorageConnectionStore: ObservableObject {
             providerID: providerID,
             accountID: account.id,
             rootItemID: folder.id,
-            displayName: folder.parentID == nil || folder.name.isEmpty || folder.name == "root"
+            // An ExcaliDash root is the whole server; its host tells several
+            // servers apart better than the provider name.
+            displayName: (folder.parentID == nil && providerID != .excaliDash)
+                || folder.name.isEmpty || folder.name == "root"
                 ? providerDescriptors.first(where: { $0.id == providerID })?.displayName
                     ?? "Cloud Storage"
                 : folder.name,

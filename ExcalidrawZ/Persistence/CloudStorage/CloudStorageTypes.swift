@@ -42,6 +42,7 @@ extension CloudStorageProviderID {
     static let dropbox = Self(rawValue: "dropbox")
     static let box = Self(rawValue: "box")
     static let webDAV = Self(rawValue: "webdav")
+    static let excaliDash = Self(rawValue: "excalidash")
 
     var displayName: String {
         switch self {
@@ -50,6 +51,7 @@ extension CloudStorageProviderID {
             case .dropbox: "Dropbox"
             case .box: "Box"
             case .webDAV: "WebDAV"
+            case .excaliDash: "ExcaliDash"
             default: "Cloud Storage"
         }
     }

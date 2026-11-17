@@ -37,6 +37,8 @@ struct CloudStorageProviderIcon: View {
                 return WebDAVServiceIdentity.imageAssetName(
                     for: accountDisplayName
                 ) ?? "CloudStorage/WebDAV"
+            case .excaliDash:
+                return "CloudStorage/ExcaliDash"
             default:
                 return nil
         }

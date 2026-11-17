@@ -8,6 +8,7 @@ import SwiftUI
 struct CloudStorageServerConnectionSheet: View {
     @Environment(\.dismiss) private var dismiss
 
+    let providerID: CloudStorageProviderID
     let providerName: String
     let connectedAccounts: [CloudStorageAccount]
     let onSelectAccount: @MainActor (CloudStorageAccount) async throws -> Void
@@ -22,11 +23,13 @@ struct CloudStorageServerConnectionSheet: View {
     @State private var operationTask: Task<Void, Never>?
 
     init(
+        providerID: CloudStorageProviderID = .webDAV,
         providerName: String,
         connectedAccounts: [CloudStorageAccount] = [],
         onSelectAccount: @escaping @MainActor (CloudStorageAccount) async throws -> Void = { _ in },
         onConnect: @escaping @MainActor (CloudStorageServerCredentials) async throws -> Void
     ) {
+        self.providerID = providerID
         self.providerName = providerName
         self.connectedAccounts = connectedAccounts
         self.onSelectAccount = onSelectAccount
@@ -36,7 +39,9 @@ struct CloudStorageServerConnectionSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
-                WebDAVServiceMarqueeHeader()
+                if !isExcaliDash {
+                    WebDAVServiceMarqueeHeader()
+                }
                 header
             }
 
@@ -52,27 +57,39 @@ struct CloudStorageServerConnectionSheet: View {
 #endif
                         .autocorrectionDisabled()
 
-                    TextField(String(
-                        localized: "cloudStorageUsername",
-                        defaultValue: "Username"
-                    ), text: $username)
+                    TextField(isExcaliDash
+                        ? String(
+                            localized: "cloudStorageEmailOrUsername",
+                            defaultValue: "Email or username"
+                        )
+                        : String(
+                            localized: "cloudStorageUsername",
+                            defaultValue: "Username"
+                        ), text: $username)
 #if os(iOS)
                         .textInputAutocapitalization(.never)
 #endif
                         .autocorrectionDisabled()
 
-                    SecureField(String(
-                        localized: "cloudStoragePasswordOrAppPassword",
-                        defaultValue: "Password or app password"
-                    ), text: $password)
+                    SecureField(isExcaliDash
+                        ? String(localized: "cloudStoragePassword", defaultValue: "Password")
+                        : String(
+                            localized: "cloudStoragePasswordOrAppPassword",
+                            defaultValue: "Password or app password"
+                        ), text: $password)
                 } header: {
-                    Text(String(
-                        localized: "cloudStorageWebDAVAccount",
-                        defaultValue: "WebDAV Account"
-                    ))
+                    Text(isExcaliDash
+                        ? String(
+                            localized: "cloudStorageExcaliDashAccount",
+                            defaultValue: "ExcaliDash Account"
+                        )
+                        : String(
+                            localized: "cloudStorageWebDAVAccount",
+                            defaultValue: "WebDAV Account"
+                        ))
                 } footer: {
                     VStack(alignment: .leading, spacing: 12) {
-                        if let detectedServiceName {
+                        if !isExcaliDash, let detectedServiceName {
                             Text(String(
                                 format: String(
                                     localized: "cloudStorageDetectedServiceFormat",
@@ -81,10 +98,17 @@ struct CloudStorageServerConnectionSheet: View {
                                 detectedServiceName
                             ))
                         }
+                        if isExcaliDash {
+                            Text(String(
+                                localized: "cloudStorageExcaliDashCredentialsDescription",
+                                defaultValue: "Enter the address of your ExcaliDash server, e.g. https://draw.example.com. All collections and drawings appear in the sidebar and every change is saved straight to the server. Leave the credentials empty if the server has sign-in disabled. Credentials are stored only in this device's Keychain."
+                            ))
+                        } else {
                         Text(String(
                             localized: "cloudStorageWebDAVCredentialsDescription",
                             defaultValue: "Enter the HTTPS site or WebDAV URL provided by your service. Nextcloud and ownCloud endpoints are discovered automatically. Credentials are stored only in this device's Keychain."
                         ))
+                        }
 
                         Button {
                             connect()
@@ -182,8 +206,18 @@ struct CloudStorageServerConnectionSheet: View {
         isConnecting || openingAccountID != nil
     }
 
+    private var isExcaliDash: Bool {
+        providerID == .excaliDash
+    }
+
     private var canConnect: Bool {
-        URL(string: serverURL.trimmingCharacters(in: .whitespacesAndNewlines)) != nil
+        if isExcaliDash {
+            // Servers with sign-in disabled need no credentials.
+            let hasHost = URL(string: serverURL.trimmingCharacters(in: .whitespacesAndNewlines))?.host != nil
+            let hasUsername = !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            return hasHost && hasUsername == !password.isEmpty
+        }
+        return URL(string: serverURL.trimmingCharacters(in: .whitespacesAndNewlines)) != nil
             && !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !password.isEmpty
     }
