@@ -14,6 +14,8 @@ struct ExcaliDashCredential: Codable, Sendable {
     /// Nil when the server runs with authentication disabled.
     let identifier: String?
     let password: String?
+    /// API key issued by the server's OAuth flow (single sign-on).
+    let apiKey: String?
     let userID: String
     let userName: String?
     let email: String?
@@ -25,6 +27,10 @@ struct ExcaliDashCredential: Codable, Sendable {
     var login: ExcaliDashAPIClient.Login? {
         guard let identifier, let password else { return nil }
         return .init(identifier: identifier, password: password)
+    }
+
+    var requiresAuthentication: Bool {
+        login != nil || apiKey != nil
     }
 
     var cloudStorageAccount: CloudStorageAccount {
@@ -155,13 +161,16 @@ actor ExcaliDashAuthenticator {
                 "This ExcaliDash server has not been set up yet. Finish the setup in your browser, then connect again."
             )
         }
+        if input.useSingleSignOn {
+            return try await authorizeWithSingleSignOn(endpoint: endpoint)
+        }
 
         let identifier = input.username.trimmingCharacters(in: .whitespacesAndNewlines)
         let login: ExcaliDashAPIClient.Login?
         if status.requiresLogin {
             if status.oidcEnforced == true {
                 throw CloudStorageError.invalidProviderResponse(
-                    "This ExcaliDash server only allows single sign-on, which ExcalidrawZ does not support yet."
+                    "This ExcaliDash server only allows single sign-on. Use “Sign in with SSO” instead."
                 )
             }
             guard !identifier.isEmpty, !input.password.isEmpty else {
@@ -182,6 +191,7 @@ actor ExcaliDashAuthenticator {
             apiBaseURL: endpoint.apiBaseURL,
             identifier: login?.identifier,
             password: login?.password,
+            apiKey: nil,
             userID: user.id,
             userName: user.name ?? user.username,
             email: user.email
@@ -201,9 +211,73 @@ actor ExcaliDashAuthenticator {
     func client(for credential: ExcaliDashCredential) -> ExcaliDashAPIClient {
         let accountID = credential.cloudStorageAccount.id
         if let client = clients[accountID] { return client }
-        let client = ExcaliDashAPIClient(endpoint: credential.endpoint, login: credential.login)
+        let client = ExcaliDashAPIClient(
+            endpoint: credential.endpoint,
+            login: credential.login,
+            apiKey: credential.apiKey
+        )
         clients[accountID] = client
         return client
+    }
+
+    /// Browser sign-in through the server's OAuth endpoint. The resulting API
+    /// key never expires; the user revokes it under Settings → API Keys.
+    private func authorizeWithSingleSignOn(
+        endpoint: ExcaliDashAPIClient.Endpoint
+    ) async throws -> CloudStorageAccount {
+        guard let metadata = await ExcaliDashOAuthMetadata.discover(for: endpoint) else {
+            throw CloudStorageError.invalidProviderResponse(
+                "This ExcaliDash server does not support app sign-in (OAuth). Update ExcaliDash, or sign in with email and password."
+            )
+        }
+        let signIn = await ExcaliDashOAuthSignIn()
+        let apiKey = try await signIn.signIn(endpoint: endpoint, metadata: metadata)
+        let client = ExcaliDashAPIClient(endpoint: endpoint, login: nil, apiKey: apiKey)
+        let user = await Self.identify(client: client, apiKey: apiKey)
+
+        let credential = ExcaliDashCredential(
+            accountID: Self.accountID(apiBaseURL: endpoint.apiBaseURL, userID: user.id),
+            siteURL: endpoint.siteURL,
+            apiBaseURL: endpoint.apiBaseURL,
+            identifier: nil,
+            password: nil,
+            apiKey: apiKey,
+            userID: user.id,
+            userName: user.name ?? user.username,
+            email: user.email
+        )
+        // Reconnecting the same account replaces its old key.
+        try credentialStore.save(credential)
+        clients[credential.cloudStorageAccount.id] = client
+        return credential.cloudStorageAccount
+    }
+
+    /// Who the API key belongs to. `GET /auth/me` accepts API keys only on
+    /// servers that allow it; otherwise the owner of the user's own drawings
+    /// tells us, and as a last resort the account is keyed per server.
+    private static func identify(
+        client: ExcaliDashAPIClient,
+        apiKey: String
+    ) async -> ExcaliDashUser {
+        if let data = try? await client.get("auth/me", operation: .authorize),
+           let response = try? ExcaliDashAPIClient.decode(ExcaliDashMeResponse.self, from: data) {
+            return response.user
+        }
+        if let data = try? await client.get(
+            "drawings",
+            query: [URLQueryItem(name: "limit", value: "1")],
+            operation: .authorize
+        ), let page = try? ExcaliDashAPIClient.decode(ExcaliDashDrawingPage.self, from: data),
+           let owner = page.drawings.first, let ownerID = owner.userId {
+            return ExcaliDashUser(
+                id: ownerID,
+                email: nil,
+                name: owner.user?.name,
+                username: nil,
+                mustResetPassword: nil
+            )
+        }
+        return ExcaliDashUser(id: "sso", email: nil, name: nil, username: nil, mustResetPassword: nil)
     }
 
     func signOut(accountID: CloudStorageAccountID) throws {

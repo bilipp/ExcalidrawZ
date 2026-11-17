@@ -407,7 +407,7 @@ actor ExcaliDashCloudStorageSession: CloudStorageSession {
     }
 
     private func hasSharedDrawings() async throws -> Bool {
-        guard credential.login != nil else { return false }
+        guard credential.requiresAuthentication else { return false }
         guard let data = try? await client.get(
             "drawings/shared",
             query: [URLQueryItem(name: "limit", value: "1")],
@@ -501,7 +501,8 @@ actor ExcaliDashCloudStorageSession: CloudStorageSession {
 
     private func isOwnedByMe(_ summary: ExcaliDashDrawingSummary) -> Bool {
         if let accessLevel = summary.accessLevel { return accessLevel == "owner" }
-        guard let userID = summary.userId else { return true }
+        // "sso": signed in with a key whose owner the server would not reveal.
+        guard let userID = summary.userId, credential.userID != "sso" else { return true }
         return userID == credential.userID
     }
 

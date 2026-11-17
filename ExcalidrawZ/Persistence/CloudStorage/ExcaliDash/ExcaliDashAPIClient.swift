@@ -32,6 +32,9 @@ actor ExcaliDashAPIClient {
 
     let endpoint: Endpoint
     private let login: Login?
+    /// API key from the OAuth (single sign-on) flow. Sent as a Bearer token;
+    /// such requests need neither cookies nor CSRF tokens.
+    private let apiKey: String?
     private let urlSession: URLSession
     private let logger = Logger(label: "ExcaliDashAPIClient")
 
@@ -39,9 +42,10 @@ actor ExcaliDashAPIClient {
     private var authenticationTask: Task<Void, Error>?
     private var hasAuthenticated = false
 
-    init(endpoint: Endpoint, login: Login?) {
+    init(endpoint: Endpoint, login: Login?, apiKey: String? = nil) {
         self.endpoint = endpoint
         self.login = login
+        self.apiKey = apiKey
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieAcceptPolicy = .always
         configuration.httpShouldSetCookies = true
@@ -108,6 +112,9 @@ actor ExcaliDashAPIClient {
         let url = try resolveAssetURL(reference)
         var request = URLRequest(url: url)
         request.setValue("*/*", forHTTPHeaderField: "Accept")
+        if let apiKey, url.host() == endpoint.apiBaseURL.host() {
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        }
         var (data, response) = try await perform(request)
         if response.statusCode == 401, login != nil {
             try await reauthenticate()
@@ -143,7 +150,9 @@ actor ExcaliDashAPIClient {
                 request.setValue(contentType, forHTTPHeaderField: "Content-Type")
             }
             request.requireFreshCloudStorageResponse(forHTTPMethod: method)
-            if isMutation {
+            if let apiKey {
+                request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            } else if isMutation {
                 request.setValue(try await currentCSRFToken(), forHTTPHeaderField: "x-csrf-token")
             }
 
@@ -283,7 +292,7 @@ actor ExcaliDashAPIClient {
                     )
                 case 403:
                     throw CloudStorageError.invalidProviderResponse(
-                        "This ExcaliDash server only allows single sign-on, which ExcalidrawZ does not support yet."
+                        "This ExcaliDash server only allows single sign-on. Use “Sign in with SSO” instead."
                     )
                 case 404:
                     // Authentication is disabled on the server; nothing to do.

@@ -150,6 +150,9 @@ struct CloudStorageServerCredentials: Sendable {
     let serverURL: URL
     let username: String
     let password: String
+    /// Sign in through the server's browser-based single sign-on instead of
+    /// username and password (ExcaliDash).
+    var useSingleSignOn = false
 }
 
 enum CloudStorageConnectionInput: Sendable {

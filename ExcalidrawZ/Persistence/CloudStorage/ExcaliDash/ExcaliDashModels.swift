@@ -51,7 +51,9 @@ struct ExcaliDashAuthStatus: Decodable, Sendable {
     let enabled: Bool?
     let authEnabled: Bool?
     let authenticated: Bool?
+    let oidcEnabled: Bool?
     let oidcEnforced: Bool?
+    let oidcProvider: String?
     let authOnboardingRequired: Bool?
     let bootstrapRequired: Bool?
 
@@ -104,6 +106,15 @@ struct ExcaliDashDrawingSummary: Decodable, Sendable {
     let updatedAt: Date?
     let userId: String?
     let accessLevel: String?
+    let user: Owner?
+
+    struct Owner: Decodable, Sendable {
+        let name: String?
+    }
+}
+
+struct ExcaliDashMeResponse: Decodable {
+    let user: ExcaliDashUser
 }
 
 struct ExcaliDashDrawingPage: Decodable {

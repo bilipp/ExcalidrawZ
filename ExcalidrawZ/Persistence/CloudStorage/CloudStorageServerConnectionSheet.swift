@@ -21,6 +21,9 @@ struct CloudStorageServerConnectionSheet: View {
     @State private var openingAccountID: CloudStorageAccountID?
     @State private var errorMessage: String?
     @State private var operationTask: Task<Void, Never>?
+    /// ExcaliDash: what the server at `serverURL` offers for sign-in.
+    @State private var excaliDashSignIn: ExcaliDashSignInOptions?
+    @State private var isUsingSingleSignOn = false
 
     init(
         providerID: CloudStorageProviderID = .webDAV,
@@ -57,6 +60,7 @@ struct CloudStorageServerConnectionSheet: View {
 #endif
                         .autocorrectionDisabled()
 
+                    if showsPasswordFields {
                     TextField(isExcaliDash
                         ? String(
                             localized: "cloudStorageEmailOrUsername",
@@ -77,6 +81,7 @@ struct CloudStorageServerConnectionSheet: View {
                             localized: "cloudStoragePasswordOrAppPassword",
                             defaultValue: "Password or app password"
                         ), text: $password)
+                    }
                 } header: {
                     Text(isExcaliDash
                         ? String(
@@ -100,8 +105,8 @@ struct CloudStorageServerConnectionSheet: View {
                         }
                         if isExcaliDash {
                             Text(String(
-                                localized: "cloudStorageExcaliDashCredentialsDescription",
-                                defaultValue: "Enter the address of your ExcaliDash server, e.g. https://draw.example.com. All collections and drawings appear in the sidebar and every change is saved straight to the server. Leave the credentials empty if the server has sign-in disabled. Credentials are stored only in this device's Keychain."
+                                localized: "cloudStorageExcaliDashCredentialsDescriptionSSO",
+                                defaultValue: "Enter the address of your ExcaliDash server, e.g. https://draw.example.com. All collections and drawings appear in the sidebar and every change is saved straight to the server. Sign in with single sign-on, or with email and password (leave both empty if the server has sign-in disabled). Credentials are stored only in this device's Keychain."
                             ))
                         } else {
                         Text(String(
@@ -110,11 +115,12 @@ struct CloudStorageServerConnectionSheet: View {
                         ))
                         }
 
+                        if showsPasswordFields {
                         Button {
                             connect()
                         } label: {
                             HStack(spacing: 8) {
-                                if isConnecting {
+                                if isConnecting && !isUsingSingleSignOn {
                                     ProgressView()
                                         .controlSize(.small)
                                 }
@@ -133,6 +139,30 @@ struct CloudStorageServerConnectionSheet: View {
                         }
                         .modernButtonStyle(style: .glassProminent, size: .large, shape: .modern)
                         .disabled(!canConnect || isConnecting)
+                        }
+
+                        if isExcaliDash {
+                            Button {
+                                connect(useSingleSignOn: true)
+                            } label: {
+                                HStack(spacing: 8) {
+                                    if isConnecting && isUsingSingleSignOn {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    } else {
+                                        Image(systemName: "person.badge.key.fill")
+                                    }
+                                    Text(singleSignOnTitle)
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                            .modernButtonStyle(
+                                style: showsPasswordFields ? .glass : .glassProminent,
+                                size: .large,
+                                shape: .modern
+                            )
+                            .disabled(!hasServerHost || isConnecting)
+                        }
                     }
                 }
 
@@ -166,6 +196,17 @@ struct CloudStorageServerConnectionSheet: View {
         }
         .onDisappear {
             cancelOperation()
+        }
+        .task(id: isExcaliDash ? serverURL : "") {
+            guard isExcaliDash else { return }
+            excaliDashSignIn = nil
+            // Debounce typing before probing the server.
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled, hasServerHost,
+                  let url = URL(string: serverURL.trimmingCharacters(in: .whitespacesAndNewlines)) else { return }
+            let options = await ExcaliDashSignInOptions.probe(url)
+            guard !Task.isCancelled else { return }
+            excaliDashSignIn = options
         }
 #if os(macOS)
         .frame(minWidth: 620, idealWidth: 700, minHeight: 600, idealHeight: 680)
@@ -208,6 +249,28 @@ struct CloudStorageServerConnectionSheet: View {
 
     private var isExcaliDash: Bool {
         providerID == .excaliDash
+    }
+
+    private var hasServerHost: Bool {
+        URL(string: serverURL.trimmingCharacters(in: .whitespacesAndNewlines))?.host != nil
+    }
+
+    /// ExcaliDash servers that enforce SSO have no use for a password.
+    private var showsPasswordFields: Bool {
+        !(isExcaliDash && excaliDashSignIn?.singleSignOnOnly == true)
+    }
+
+    private var singleSignOnTitle: String {
+        if let provider = excaliDashSignIn?.providerName {
+            return String(
+                format: String(
+                    localized: "cloudStorageSignInWithProviderFormat",
+                    defaultValue: "Sign in with %@"
+                ),
+                provider
+            )
+        }
+        return String(localized: "cloudStorageSignInWithSSO", defaultValue: "Sign in with SSO")
     }
 
     private var canConnect: Bool {
@@ -286,12 +349,13 @@ struct CloudStorageServerConnectionSheet: View {
         }
     }
 
-    private func connect() {
+    private func connect(useSingleSignOn: Bool = false) {
         guard !isOperationInProgress else { return }
         let trimmedURL = serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: trimmedURL) else { return }
 
         isConnecting = true
+        isUsingSingleSignOn = useSingleSignOn
         errorMessage = nil
         operationTask = Task { @MainActor in
             defer {
@@ -302,8 +366,9 @@ struct CloudStorageServerConnectionSheet: View {
                 try await onConnect(
                     CloudStorageServerCredentials(
                         serverURL: url,
-                        username: username.trimmingCharacters(in: .whitespacesAndNewlines),
-                        password: password
+                        username: useSingleSignOn ? "" : username.trimmingCharacters(in: .whitespacesAndNewlines),
+                        password: useSingleSignOn ? "" : password,
+                        useSingleSignOn: useSingleSignOn
                     )
                 )
                 try Task.checkCancellation()
@@ -326,5 +391,22 @@ struct CloudStorageServerConnectionSheet: View {
     private func cancelOperation() {
         operationTask?.cancel()
         operationTask = nil
+    }
+}
+
+/// What an ExcaliDash server offers for signing in, shown before connecting.
+struct ExcaliDashSignInOptions: Sendable {
+    let providerName: String?
+    let singleSignOnOnly: Bool
+
+    static func probe(_ url: URL) async -> ExcaliDashSignInOptions? {
+        guard let endpoint = try? await ExcaliDashEndpointResolver.resolve(url),
+              let status = try? await ExcaliDashAPIClient(endpoint: endpoint, login: nil).authStatus() else {
+            return nil
+        }
+        let provider = status.oidcEnabled == true
+            ? status.oidcProvider.flatMap { $0.isEmpty || $0 == "OIDC" ? nil : $0 }
+            : nil
+        return .init(providerName: provider, singleSignOnOnly: status.oidcEnforced == true)
     }
 }
