@@ -174,6 +174,8 @@ struct InspectorPresentationModifier: ViewModifier {
                 CanvasSettingsInspectorContent()
             case .search:
                 SearchInspectorContent()
+            case .comments:
+                ExcaliDashCommentsInspectorContent()
 #if DEBUG
             case .debug:
                 DebugPanelView()
@@ -225,6 +227,8 @@ struct InspectorPresentationModifier: ViewModifier {
                 String(localizable: .canvasPreferencesTitle)
             case .search:
                 String(localizable: .searchButtonTitle)
+            case .comments:
+                "Comments"
 #if DEBUG
             case .debug:
                 "Debug"
@@ -336,7 +340,7 @@ struct InspectorPresentationModifier: ViewModifier {
         !floatingInspectorContentHasOwnNavigationStack
 #else
         switch layoutState.activeInspectorTab {
-            case .aiChat, .library, .presentation, .history:
+            case .aiChat, .library, .presentation, .history, .comments:
                 true
             default:
                 false

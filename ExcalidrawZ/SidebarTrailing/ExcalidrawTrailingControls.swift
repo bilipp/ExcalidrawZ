@@ -128,6 +128,13 @@ struct ExcalidrawTrailingControls: View {
         }
     }
 
+    /// Comments exist only on ExcaliDash drawings.
+    private var excaliDashReferenceID: String? {
+        guard case .cloudStorageFile(let reference) = fileState.currentActiveFile,
+              reference.providerID == .excaliDash else { return nil }
+        return reference.id
+    }
+
     private var shouldOpenAIChatAsIsland: Bool {
         isCompactIOS &&
         AIChatAvailability.isAvailable &&
@@ -184,6 +191,19 @@ struct ExcalidrawTrailingControls: View {
                     title: String(localizable: .presentationTitle),
                     isDisabled: isDisabled(tab: .presentation)
                 )
+
+                if let excaliDashReferenceID {
+                    InspectorTabButton(
+                        tab: .comments,
+                        icon: .textBubble,
+                        title: "Comments",
+                        isDisabled: isDisabled(tab: .comments)
+                    )
+                    .overlay(alignment: .topTrailing) {
+                        ExcaliDashCommentsCountBadge(referenceID: excaliDashReferenceID)
+                            .offset(x: 4, y: -4)
+                    }
+                }
 
                 InspectorTabButton(
                     tab: .aiChat,

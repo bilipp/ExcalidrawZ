@@ -48,6 +48,10 @@ final class ExcaliDashLiveSession: NSObject {
     /// that refuse the socket, so the regular polling keeps working there.
     var isReceivingLiveUpdates: Bool { isJoined && !isStopped }
 
+    /// Called when the server announces that the drawing's comment threads
+    /// changed, and after every (re)join so threads missed offline load.
+    var onCommentsChanged: (() -> Void)?
+
     init(
         drawingID: String,
         credential: ExcaliDashCredential,
@@ -76,7 +80,10 @@ final class ExcaliDashLiveSession: NSObject {
         guard let webView else { return }
         let controller = webView.configuration.userContentController
         controller.removeScriptMessageHandler(forName: Self.handlerName)
-        controller.add(WeakScriptMessageHandler(self), name: Self.handlerName)
+        controller.add(
+            WeakScriptMessageHandler { [weak self] body in self?.receive(body) },
+            name: Self.handlerName
+        )
 
         // The editor may still be loading the drawing; wait for its API.
         var installed = false
@@ -146,6 +153,7 @@ final class ExcaliDashLiveSession: NSObject {
                 me.merge(user) { _, server in server }
             }
             isJoined = true
+            onCommentsChanged?()
             await catchUp()
         } catch {
             logger.warning("Joining the live drawing failed: \(error.localizedDescription)")
@@ -191,6 +199,9 @@ final class ExcaliDashLiveSession: NSObject {
                 let present = Set(presence.compactMap { $0["id"] as? String })
                 cursors = cursors.filter { present.contains($0.key) }
                 await pushCollaborators()
+            case "comments-changed":
+                guard payload?["drawingId"] as? String == drawingID else { return }
+                onCommentsChanged?()
             case "error":
                 if payload?["message"] as? String == "You do not have access to this drawing" {
                     isJoined = false
@@ -515,13 +526,13 @@ final class ExcaliDashLiveSession: NSObject {
     """#
 }
 
-/// `WKUserContentController` retains its handlers; this keeps the session
-/// releasable even if `stop()` is never reached.
-private final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
-    weak var target: ExcaliDashLiveSession?
+/// `WKUserContentController` retains its handlers; capturing the owner
+/// weakly in `onMessage` keeps it releasable even if it never unregisters.
+final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    private let onMessage: @MainActor (Any) -> Void
 
-    init(_ target: ExcaliDashLiveSession) {
-        self.target = target
+    init(_ onMessage: @escaping @MainActor (Any) -> Void) {
+        self.onMessage = onMessage
     }
 
     func userContentController(
@@ -530,7 +541,7 @@ private final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
     ) {
         let body = message.body
         MainActor.assumeIsolated {
-            target?.receive(body)
+            onMessage(body)
         }
     }
 }
@@ -562,13 +573,27 @@ final class ExcaliDashLiveRegistry {
             client: client,
             webView: webView
         )
+        let comments = ExcaliDashCommentsModel(
+            drawingID: drawingID,
+            currentUserID: credential.userID,
+            client: client,
+            webView: webView
+        )
+        session.onCommentsChanged = { [weak comments] in comments?.refresh() }
         if let previous = sessions[reference.id] { await previous.stop() }
         sessions[reference.id] = session
-        await session.start()
-        // Park until the editor leaves this drawing.
-        while !Task.isCancelled {
-            try? await Task.sleep(for: .seconds(3600))
-        }
+        ExcaliDashCommentsRegistry.shared.register(comments, for: reference.id)
+
+        async let live: Void = session.start()
+        async let pins: Void = comments.start()
+        _ = await (live, pins)
+        // Comments refresh on the socket's `comments-changed`, with a slow
+        // poll as backstop (fast when the socket could not join). Returns
+        // when the editor leaves this drawing.
+        await comments.pollWhile { [weak session] in session?.isReceivingLiveUpdates == true }
+
+        await comments.stop()
+        ExcaliDashCommentsRegistry.shared.unregister(comments, for: reference.id)
         await session.stop()
         if sessions[reference.id] === session {
             sessions[reference.id] = nil

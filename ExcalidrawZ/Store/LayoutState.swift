@@ -15,6 +15,8 @@ final class LayoutState: ObservableObject {
         case presentation
         case preference
         case search
+        /// Comment threads; only offered for drawings on an ExcaliDash server.
+        case comments
 #if DEBUG
         case debug
 #endif

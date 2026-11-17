@@ -375,6 +375,14 @@ struct CompactExcalidrawBottomToolbarContent: ToolbarContent {
                 icon: .play,
                 title: String(localizable: .presentationTitle)
             )
+            if case .cloudStorageFile(let reference) = fileState.currentActiveFile,
+               reference.providerID == .excaliDash {
+                compactInspectorTabMenuButton(
+                    tab: .comments,
+                    icon: .textBubble,
+                    title: "Comments"
+                )
+            }
         } label: {
             Label(.localizable(.generalButtonMore), systemSymbol: .ellipsis)
                 .labelStyle(.iconOnly)

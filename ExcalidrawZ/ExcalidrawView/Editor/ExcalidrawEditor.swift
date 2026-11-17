@@ -444,6 +444,11 @@ struct ExcalidrawEditor: View {
                 refreshActiveCloudStorageDocument()
             }
         }
+        .modifier(
+            ExcaliDashCommentsRevealModifier(
+                referenceID: activeExcaliDashLiveID == "inactive" ? nil : activeExcaliDashLiveID
+            )
+        )
         .task(id: activeExcaliDashLiveID) {
             guard case .cloudStorageFile(let reference) = activeFile,
                   reference.providerID == .excaliDash,
